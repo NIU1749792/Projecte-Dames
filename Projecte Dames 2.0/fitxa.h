@@ -23,7 +23,6 @@ typedef enum {
 typedef enum {
     COLOR_NEGRE,   //< Ficha de color negro
     COLOR_BLANC,   //< Ficha de color blanco
-    COLOR_EMPTY    //< Sin color (para casillas vacías)
 } ColorFitxa;
 
 class Fitxa {
