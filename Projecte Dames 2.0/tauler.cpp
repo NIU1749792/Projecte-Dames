@@ -219,24 +219,13 @@ void Tauler::calculaMovimentsNormals(const Posicio& pos) {
     }
 
     ColorFitxa color = m_tauler[fila][col].getColor();
-    int direccio = (color == COLOR_NEGRE) ? 1 : -1;  // Negras abajo, blancas arriba
+    int direccio = (color == COLOR_NEGRE) ? 1 : -1;  // Negras hacia abajo (aumenta fila), blancas hacia arriba
     int newFila = fila + direccio;
 
-    if (newFila < 0 || newFila >= N_FILES) return;
+    // Movimientos simples (solo si no hay capturas obligatorias)
+    bool tieneCapturas = false;
 
-    // Movimientos simples
-    for (int dcol : {-1, 1}) {
-        int newCol = col + dcol;
-        if (newCol >= 0 && newCol < N_COLUMNES) {
-            if (m_tauler[newFila][newCol].esBuida()) {
-                Moviment mov(pos);
-                mov.afegeixPas(Posicio(coordenadasAPosicion(newCol, newFila + 1)));
-                m_tauler[fila][col].afegeixMovimentValid(mov);
-            }
-        }
-    }
-
-    // Movimientos de captura
+    // Primero verificar si hay capturas posibles
     for (int dcol : {-2, 2}) {
         int newCol = col + dcol;
         int colComida = col + dcol / 2;
@@ -245,14 +234,29 @@ void Tauler::calculaMovimentsNormals(const Posicio& pos) {
         if (newCol >= 0 && newCol < N_COLUMNES &&
             newFilaCaptura >= 0 && newFilaCaptura < N_FILES) {
 
-            if (!m_tauler[newFila][colComida].esBuida() &&
-                m_tauler[newFila][colComida].getColor() != color &&
+            if (!m_tauler[fila + direccio][colComida].esBuida() &&
+                m_tauler[fila + direccio][colComida].getColor() != color &&
                 m_tauler[newFilaCaptura][newCol].esBuida()) {
 
+                tieneCapturas = true;
                 Moviment mov(pos);
-                mov.afegeixPecaMenjada(Posicio(coordenadasAPosicion(colComida, newFila + 1)));
+                mov.afegeixPecaMenjada(Posicio(coordenadasAPosicion(colComida, (fila + direccio) + 1)));
                 mov.afegeixPas(Posicio(coordenadasAPosicion(newCol, newFilaCaptura + 1)));
                 m_tauler[fila][col].afegeixMovimentValid(mov);
+            }
+        }
+    }
+
+    // Solo permitir movimientos simples si no hay capturas
+    if (!tieneCapturas && newFila >= 0 && newFila < N_FILES) {
+        for (int dcol : {-1, 1}) {
+            int newCol = col + dcol;
+            if (newCol >= 0 && newCol < N_COLUMNES) {
+                if (m_tauler[newFila][newCol].esBuida()) {
+                    Moviment mov(pos);
+                    mov.afegeixPas(Posicio(coordenadasAPosicion(newCol, newFila + 1)));
+                    m_tauler[fila][col].afegeixMovimentValid(mov);
+                }
             }
         }
     }
