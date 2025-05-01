@@ -24,6 +24,16 @@
     <ClInclude Include="posicio.h" />
     <ClInclude Include="tauler.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="fitxa.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="moviment.cpp" />
+    <ClCompile Include="posicio.cpp" />
+    <ClCompile Include="tauler.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="recomendacion.txt" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

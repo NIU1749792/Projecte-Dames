@@ -1,0 +1,3 @@
+tener los casos por separado, hacerlo uno en uno, comenzar por el más fàcil y probarlo.
+
+Utilizar BFS o DFS

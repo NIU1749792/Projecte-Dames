@@ -62,7 +62,7 @@ private:
     int m_fila;     //< Almacena el número de fila (1-8)
     int m_columna;  //< Almacena el número de columna (0-7)
 
-    /**
+    /*
      * @param posicio Cadena a validar
      * @return true si cumple el formato letra(a-h) + número(1-8)
      */
