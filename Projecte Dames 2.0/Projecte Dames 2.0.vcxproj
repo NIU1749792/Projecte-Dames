@@ -20,9 +20,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fitxa.h" />
+    <ClInclude Include="json.hpp" />
     <ClInclude Include="moviment.h" />
     <ClInclude Include="posicio.h" />
-    <ClInclude Include="tauler.h" />
+    <ClInclude Include="tauler.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="fitxa.cpp" />
@@ -33,6 +34,8 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="recomendacion.txt" />
+    <Text Include="taulerinicial1.txt" />
+    <Text Include="taulerinicial2.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

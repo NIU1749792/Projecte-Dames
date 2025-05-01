@@ -24,7 +24,10 @@
     <ClInclude Include="moviment.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
-    <ClInclude Include="tauler.h">
+    <ClInclude Include="tauler.hpp">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
+    <ClInclude Include="json.hpp">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
   </ItemGroup>
@@ -47,5 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="recomendacion.txt" />
+    <Text Include="taulerinicial1.txt" />
+    <Text Include="taulerinicial2.txt" />
   </ItemGroup>
 </Project>

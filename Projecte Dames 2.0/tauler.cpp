@@ -1,5 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
-#include "tauler.h"
+#include "tauler.hpp"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -8,71 +8,85 @@
 
 using namespace std;
 
-// Función auxiliar para convertir coordenadas numéricas a notación "a1"
-string coordenadasAPosicion(int columna, int fila) {
+Tauler::Tauler() {
+    for (int i = 0; i < N_FILES; i++) {
+        for (int j = 0; j < N_COLUMNES; j++) {
+            m_tauler[i][j] = Fitxa();
+        }
+    }
+}
+
+std::string Tauler::coordenadasAPosicion(int columna, int fila) const {
     if (columna < 0 || columna > 7 || fila < 1 || fila > 8) {
-        throw out_of_range("Coordenadas fuera de rango");
+        throw std::out_of_range("Coordenadas fuera de rango");
     }
     char letra = 'a' + columna;
-    return string(1, letra) + to_string(fila);
+    return std::string(1, letra) + std::to_string(fila);
 }
 
-Tauler::Tauler() {
-    // Inicializar todas las casillas como vacías
+void Tauler::inicialitza(const std::string& nomFitxer) {
+    // Limpiar tablero
     for (int i = 0; i < N_FILES; i++) {
         for (int j = 0; j < N_COLUMNES; j++) {
             m_tauler[i][j] = Fitxa();
         }
     }
-}
 
-void Tauler::inicialitza(const char nomFitxer[]) {
     ifstream fitxer(nomFitxer);
     if (!fitxer.is_open()) {
-        throw runtime_error("No s'ha pogut obrir el fitxer: " + string(nomFitxer));
-    }
-
-    // Limpiar el tablero
-    for (int i = 0; i < N_FILES; i++) {
-        for (int j = 0; j < N_COLUMNES; j++) {
-            m_tauler[i][j] = Fitxa();
-        }
+        cerr << "Error al abrir archivo: " << nomFitxer << endl;
+        return;
     }
 
     char tipus;
     string pos;
     while (fitxer >> tipus >> pos) {
-        Posicio p(pos);
-        int fila = p.getFila() - 1; // Convertir a índice 0-7
-        int col = p.getColumna();
+        try {
+            Posicio p(pos);
+            int fila = p.getFila() - 1;  // Convertir a índice 0-based
+            int col = p.getColumna();
 
-        TipusFitxa tf;
-        ColorFitxa cf;
+            TipusFitxa tf;
+            ColorFitxa cf;
 
-        switch (toupper(tipus)) {
-        case 'X':
-            tf = TIPUS_NORMAL;
-            cf = COLOR_NEGRE;
-            break;
-        case 'O':
-            tf = TIPUS_NORMAL;
-            cf = COLOR_BLANC;
-            break;
-        case 'D':
-            tf = TIPUS_DAMA;
-            cf = COLOR_NEGRE;
-            break;
-        case 'R':
-            tf = TIPUS_DAMA;
-            cf = COLOR_BLANC;
-            break;
-        default:
-            throw invalid_argument("Tipus de fitxa no vàlid: " + string(1, tipus));
+            switch (toupper(tipus)) {
+            case 'X': tf = TIPUS_NORMAL; cf = COLOR_NEGRE; break;
+            case 'O': tf = TIPUS_NORMAL; cf = COLOR_BLANC; break;
+            case 'D': tf = TIPUS_DAMA; cf = COLOR_NEGRE; break;
+            case 'R': tf = TIPUS_DAMA; cf = COLOR_BLANC; break;
+            default: continue;  // Ignorar tipos inválidos
+            }
+
+            if (fila >= 0 && fila < N_FILES && col >= 0 && col < N_COLUMNES) {
+                m_tauler[fila][col] = Fitxa(tf, cf, p);
+            }
         }
-
-        m_tauler[fila][col] = Fitxa(tf, cf, p);
+        catch (...) {
+            continue;  // Ignorar posiciones inválidas
+        }
     }
-    fitxer.close();
+}
+
+std::string Tauler::toString() const {
+    std::stringstream ss;
+    for (int i = 0; i < N_FILES; i++) {
+        ss << (N_FILES - i) << ": ";
+        for (int j = 0; j < N_COLUMNES; j++) {
+            char c = '_';
+            if (!m_tauler[i][j].esBuida()) {
+                switch (m_tauler[i][j].getTipus()) {
+                case TIPUS_NORMAL: c = (m_tauler[i][j].getColor() == COLOR_NEGRE) ? 'X' : 'O'; break;
+                case TIPUS_DAMA: c = (m_tauler[i][j].getColor() == COLOR_NEGRE) ? 'D' : 'R'; break;
+                default: c = '_';
+                }
+            }
+            ss << c;
+            if (j != N_COLUMNES - 1) ss << " ";
+        }
+        ss << "\n";
+    }
+    ss << "   a b c d e f g h";
+    return ss.str();
 }
 
 void Tauler::actualitzaMovimentsValids() {
@@ -100,7 +114,8 @@ void Tauler::actualitzaMovimentsValids() {
  * @param[out] posicionsPossibles Array donde almacenar las posiciones
  * @param maxPosicions Tamaño máximo del array de posiciones
  */
-void Tauler::getPosicionsPossibles(const Posicio& origen, int& nPosicions, Posicio posicionsPossibles[], int maxPosicions) {
+void Tauler::getPosicionsPossibles(const Posicio& origen, int& nPosicions, Posicio posicionsPossibles[]) {
+    const int MAX_POSICIONS = 20; // Define un máximo razonable
     nPosicions = 0;
     int fila = origen.getFila() - 1;
     int col = origen.getColumna();
@@ -110,27 +125,56 @@ void Tauler::getPosicionsPossibles(const Posicio& origen, int& nPosicions, Posic
     std::vector<Moviment> moviments;
     m_tauler[fila][col].getMovimentsValids(moviments);
 
-    for (size_t i = 0; i < moviments.size() && nPosicions < maxPosicions; i++) {
+    for (size_t i = 0; i < moviments.size() && nPosicions < MAX_POSICIONS; i++) {
         posicionsPossibles[nPosicions++] = moviments[i].getDesti();
     }
 }
 
 bool Tauler::mouFitxa(const Posicio& origen, const Posicio& desti) {
-    if (!esCassellaValid(desti) || !esMovimentValid(origen, desti)) {
-        return false;
-    }
-
     int filaOrigen = origen.getFila() - 1;
     int colOrigen = origen.getColumna();
     int filaDesti = desti.getFila() - 1;
     int colDesti = desti.getColumna();
 
-    // Mover la ficha
+    // Validaciones básicas
+    if (filaOrigen < 0 || filaOrigen >= N_FILES || colOrigen < 0 || colOrigen >= N_COLUMNES ||
+        filaDesti < 0 || filaDesti >= N_FILES || colDesti < 0 || colDesti >= N_COLUMNES ||
+        m_tauler[filaOrigen][colOrigen].esBuida() || !m_tauler[filaDesti][colDesti].esBuida()) {
+        return false;
+    }
+
+    // Verificar si el movimiento es válido
+    vector<Moviment> moviments;
+    m_tauler[filaOrigen][colOrigen].getMovimentsValids(moviments);
+
+    bool movimentValid = false;
+    Moviment movimentRealitzat;
+
+    for (const Moviment& mov : moviments) {
+        if (mov.getDesti() == desti) {
+            movimentValid = true;
+            movimentRealitzat = mov;
+            break;
+        }
+    }
+
+    if (!movimentValid) return false;
+
+    // Realizar el movimiento
     m_tauler[filaDesti][colDesti] = m_tauler[filaOrigen][colOrigen];
     m_tauler[filaDesti][colDesti].setPosicio(desti);
     m_tauler[filaOrigen][colOrigen] = Fitxa();
 
-    // Comprobar si se convierte en dama
+    // Eliminar fichas capturadas
+    for (const Posicio& capturada : movimentRealitzat.getPecesMenjades()) {
+        int fila = capturada.getFila() - 1;
+        int col = capturada.getColumna();
+        if (fila >= 0 && fila < N_FILES && col >= 0 && col < N_COLUMNES) {
+            m_tauler[fila][col] = Fitxa();
+        }
+    }
+
+    // Convertir a dama si llega al extremo opuesto
     if (m_tauler[filaDesti][colDesti].getTipus() == TIPUS_NORMAL) {
         if ((m_tauler[filaDesti][colDesti].getColor() == COLOR_NEGRE && filaDesti == N_FILES - 1) ||
             (m_tauler[filaDesti][colDesti].getColor() == COLOR_BLANC && filaDesti == 0)) {
@@ -139,37 +183,6 @@ bool Tauler::mouFitxa(const Posicio& origen, const Posicio& desti) {
     }
 
     return true;
-}
-
-void Tauler::toString(char buffer[], int bufferSize) const {
-    stringstream ss;
-
-    for (int i = 0; i < N_FILES; i++) {
-        ss << (N_FILES - i) << ": ";
-        for (int j = 0; j < N_COLUMNES; j++) {
-            char c = '_';
-            if (!m_tauler[i][j].esBuida()) {
-                switch (m_tauler[i][j].getTipus()) {
-                case TIPUS_NORMAL:
-                    c = (m_tauler[i][j].getColor() == COLOR_NEGRE) ? 'X' : 'O';
-                    break;
-                case TIPUS_DAMA:
-                    c = (m_tauler[i][j].getColor() == COLOR_NEGRE) ? 'D' : 'R';
-                    break;
-                default:
-                    c = '_';
-                }
-            }
-            ss << c;
-            if (j != N_COLUMNES - 1) ss << " ";
-        }
-        ss << endl;
-    }
-    ss << "   a b c d e f g h";
-
-    string result = ss.str();
-    strncpy(buffer, result.c_str(), bufferSize - 1);
-    buffer[bufferSize - 1] = '\0';
 }
 
 bool Tauler::esCassellaValid(const Posicio& desti) const {
@@ -197,35 +210,53 @@ bool Tauler::esMovimentValid(const Posicio& origen, const Posicio& desti) const 
 }
 
 void Tauler::calculaMovimentsNormals(const Posicio& pos) {
-    int fila_idx = pos.getFila() - 1;
-    int col_idx = pos.getColumna();
+    int fila = pos.getFila() - 1;
+    int col = pos.getColumna();
 
-    if (m_tauler[fila_idx][col_idx].esBuida()) return;
+    if (fila < 0 || fila >= N_FILES || col < 0 || col >= N_COLUMNES ||
+        m_tauler[fila][col].esBuida()) {
+        return;
+    }
 
-    ColorFitxa color = m_tauler[fila_idx][col_idx].getColor();
-    int direccio = (color == COLOR_NEGRE) ? 1 : -1; // Negras avanzan hacia abajo, blancas hacia arriba
+    ColorFitxa color = m_tauler[fila][col].getColor();
+    int direccio = (color == COLOR_NEGRE) ? 1 : -1;
+    int newFila = fila + direccio;
 
-    // Movimientos simples (sin captura)
-    int newFila_idx = fila_idx + direccio;
-    if (newFila_idx >= 0 && newFila_idx < N_FILES) {
-        // Diagonal izquierda
-        int newCol_idx = col_idx - 1;
-        if (newCol_idx >= 0 && m_tauler[newFila_idx][newCol_idx].esBuida()) {
-            Moviment mov(pos);
-            mov.afegeixPas(Posicio(coordenadasAPosicion(newCol_idx, newFila_idx + 1)));
-            m_tauler[fila_idx][col_idx].afegeixMovimentValid(mov);
+    if (newFila < 0 || newFila >= N_FILES) return;
+
+    // Movimientos simples
+    for (int dcol : {-1, 1}) {
+        int newCol = col + dcol;
+        if (newCol >= 0 && newCol < N_COLUMNES) {
+            if (m_tauler[newFila][newCol].esBuida()) {
+                Moviment mov(pos);
+                mov.afegeixPas(Posicio(coordenadasAPosicion(newCol, newFila + 1)));
+                m_tauler[fila][col].afegeixMovimentValid(mov);
+            }
         }
+    }
 
-        // Diagonal derecha
-        newCol_idx = col_idx + 1;
-        if (newCol_idx < N_COLUMNES && m_tauler[newFila_idx][newCol_idx].esBuida()) {
-            Moviment mov(pos);
-            mov.afegeixPas(Posicio(coordenadasAPosicion(newCol_idx, newFila_idx + 1)));
-            m_tauler[fila_idx][col_idx].afegeixMovimentValid(mov);
+    // Movimientos de captura
+    for (int dcol : {-2, 2}) {
+        int newCol = col + dcol;
+        int colComida = col + dcol / 2;
+        int newFilaCaptura = fila + 2 * direccio;
+
+        if (newCol >= 0 && newCol < N_COLUMNES &&
+            newFilaCaptura >= 0 && newFilaCaptura < N_FILES) {
+
+            if (!m_tauler[newFila][colComida].esBuida() &&
+                m_tauler[newFila][colComida].getColor() != color &&
+                m_tauler[newFilaCaptura][newCol].esBuida()) {
+
+                Moviment mov(pos);
+                mov.afegeixPecaMenjada(Posicio(coordenadasAPosicion(colComida, newFila + 1)));
+                mov.afegeixPas(Posicio(coordenadasAPosicion(newCol, newFilaCaptura + 1)));
+                m_tauler[fila][col].afegeixMovimentValid(mov);
+            }
         }
     }
 }
-
 void Tauler::calculaMovimentsDama(const Posicio& pos) {
     // Implementación básica para la primera versión
     // En versiones posteriores se implementará el movimiento completo de damas
