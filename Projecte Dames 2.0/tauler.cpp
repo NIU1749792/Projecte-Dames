@@ -69,8 +69,8 @@ void Tauler::inicialitza(const std::string& nomFitxer) {
 
 std::string Tauler::toString() const {
     std::stringstream ss;
-    for (int i = 0; i < N_FILES; i++) {
-        ss << (N_FILES - i) << ": ";
+    for (int i = N_FILES - 1; i >= 0; i--) {  // Cambiado para iterar de 7 a 0
+        ss << (i + 1) << ": ";  // Mostrar número de fila correcto (1-8)
         for (int j = 0; j < N_COLUMNES; j++) {
             char c = '_';
             if (!m_tauler[i][j].esBuida()) {
@@ -219,7 +219,7 @@ void Tauler::calculaMovimentsNormals(const Posicio& pos) {
     }
 
     ColorFitxa color = m_tauler[fila][col].getColor();
-    int direccio = (color == COLOR_NEGRE) ? 1 : -1;
+    int direccio = (color == COLOR_NEGRE) ? 1 : -1;  // Negras abajo, blancas arriba
     int newFila = fila + direccio;
 
     if (newFila < 0 || newFila >= N_FILES) return;
@@ -257,6 +257,7 @@ void Tauler::calculaMovimentsNormals(const Posicio& pos) {
         }
     }
 }
+
 void Tauler::calculaMovimentsDama(const Posicio& pos) {
     // Implementación básica para la primera versión
     // En versiones posteriores se implementará el movimiento completo de damas
