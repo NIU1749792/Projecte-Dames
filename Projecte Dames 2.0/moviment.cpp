@@ -34,7 +34,7 @@ void Moviment::afegeixPas(const Posicio& pas) {
     m_passos.push_back(pas);
 }
 
-void Moviment::afegeixPeçaMenjada(const Posicio& peca) {
+void Moviment::afegeixPecaMenjada(const Posicio& peca) {
     m_pecesMenjades.push_back(peca);
 }
 

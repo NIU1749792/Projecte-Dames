@@ -18,7 +18,7 @@ public:
 
     void setOrigen(const Posicio& origen);
     void afegeixPas(const Posicio& pas);
-    void afegeixPeçaMenjada(const Posicio& peca);
+    void afegeixPecaMenjada(const Posicio& peca);
 
     Posicio getDesti() const;
     bool esMenjada() const;
