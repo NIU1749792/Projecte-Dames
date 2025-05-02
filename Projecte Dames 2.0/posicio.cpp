@@ -1,6 +1,5 @@
 #include "posicio.h"
 #include <stdexcept>
-#include <cctype>
 
 Posicio::Posicio() : m_fila(0), m_columna(0) {}
 
