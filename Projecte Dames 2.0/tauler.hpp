@@ -30,6 +30,20 @@ private:
     void bufaFitxa(const Posicio& pos);
 
     std::string coordenadasAPosicion(int columna, int fila) const;
+
+    // Función para cadenas de movimientos de fichas normales
+    void calculaMovimentsEnCadena(const Posicio& pos, Moviment& movActual,
+        std::vector<Moviment>& movimentsCompletos,
+        std::vector<std::vector<bool>>& visitados);
+
+    // Función para cadenas de movimientos de damas
+    void calculaMovimentsDamaEnCadena(const Posicio& pos, Moviment& movActual,
+        std::vector<Moviment>& movimentsCompletos,
+        std::vector<std::vector<bool>>& visitados);
+
+    // Función para crear matriz de visitados
+    std::vector<std::vector<bool>> crearMatriuVisitados();
+    void eliminarMovimentsDuplicats();
 };
 
 #endif // TAULER_H
