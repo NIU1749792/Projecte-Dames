@@ -109,9 +109,6 @@ void Tauler::actualitzaMovimentsValids() {
             }
         }
     }
-
-    // Eliminate duplicate movements
-    eliminarMovimentsDuplicats();
 }
 
 void Tauler::getPosicionsPossibles(const Posicio& origen, int& nPosicions, Posicio posicionsPossibles[]) {
@@ -205,334 +202,9 @@ bool Tauler::esMovimentValid(const Posicio& origen, const Posicio& desti) const 
     return esValid;
 }
 
-void Tauler::calculaMovimentsNormals(const Posicio& pos) {
-    int fila = pos.getFila() - 1;
-    int col = pos.getColumna();
 
-    ColorFitxa color = m_tauler[fila][col].getColor();
-    int direccio = (color == COLOR_NEGRE) ? -1 : 1;
 
-    // Limpiar movimientos anteriores
-    m_tauler[fila][col].netejaMovimentsValids();
 
-    // Crear matriz dinámica de visitados
-    auto visitados = crearMatriuVisitados();
-
-    std::vector<Moviment> movimentsCompletos;
-
-    // 1. Buscar capturas en todas las direcciones diagonales
-    bool hayCaptures = false;
-
-    // Direcciones diagonales: arriba-izquierda, arriba-derecha, abajo-izquierda, abajo-derecha
-    const int direcciones[4][2] = { {-1, -1}, {-1, 1}, {1, -1}, {1, 1} };
-
-    for (const auto& dir : direcciones) {
-        int dfila = dir[0];  // -1 para arriba, 1 para abajo
-        int dcol = dir[1];   // -1 para izquierda, 1 para derecha
-
-        int newFila = fila + 2 * dfila;
-        int newCol = col + 2 * dcol;
-        int filaComida = fila + dfila;
-        int colComida = col + dcol;
-
-        if (newFila >= 0 && newFila < N_FILES && newCol >= 0 && newCol < N_COLUMNES &&
-            filaComida >= 0 && filaComida < N_FILES && colComida >= 0 && colComida < N_COLUMNES &&
-            !m_tauler[filaComida][colComida].esBuida() &&
-            m_tauler[filaComida][colComida].getColor() != color &&
-            m_tauler[newFila][newCol].esBuida()) {
-
-            hayCaptures = true;
-
-            // Crear movimiento inicial
-            Moviment mov(pos);
-            mov.afegeixPecaMenjada(Posicio(coordenadasAPosicion(colComida, filaComida + 1)));
-            mov.afegeixPas(Posicio(coordenadasAPosicion(newCol, newFila + 1)));
-
-            // Marcar la pieza como comida temporalmente
-            visitados[filaComida][colComida] = true;
-
-            // Buscar capturas adicionales desde la nueva posición
-            calculaMovimentsEnCadena(Posicio(coordenadasAPosicion(newCol, newFila + 1)),
-                mov, movimentsCompletos, visitados);
-
-            // Desmarcar para próximas iteraciones
-            visitados[filaComida][colComida] = false;
-        }
-    }
-
-    // 2. Calcular movimientos simples (solo hacia adelante para fichas normales)
-    int newFila = fila + direccio;
-    if (newFila >= 0 && newFila < N_FILES) {
-        for (int dcol : {-1, 1}) {
-            int newCol = col + dcol;
-            if (newCol >= 0 && newCol < N_COLUMNES &&
-                m_tauler[newFila][newCol].esBuida()) {
-                Moviment mov(pos);
-                mov.afegeixPas(Posicio(coordenadasAPosicion(newCol, newFila + 1)));
-                movimentsCompletos.push_back(mov);
-            }
-        }
-    }
-
-    // Añadir todos los movimientos encontrados
-    for (const Moviment& mov : movimentsCompletos) {
-        m_tauler[fila][col].afegeixMovimentValid(mov);
-    }
-}
-
-void Tauler::calculaMovimentsDama(const Posicio& pos) {
-    int fila = pos.getFila() - 1;
-    int col = pos.getColumna();
-
-    ColorFitxa color = m_tauler[fila][col].getColor();
-    m_tauler[fila][col].netejaMovimentsValids();
-
-    auto visitados = crearMatriuVisitados();
-    std::vector<Moviment> movimentsCompletos;
-    bool hayCaptures = false;
-
-    const int direcciones[4][2] = { {1, 1}, {1, -1}, {-1, 1}, {-1, -1} };
-
-    // 1. Buscar capturas en todas las direcciones diagonales
-    for (const auto& dir : direcciones) {
-        int dfila = dir[0];
-        int dcol = dir[1];
-
-        // Buscar enemigos en esta dirección y sus posibles aterrizajes
-        for (int pasoEnemigo = 1; pasoEnemigo < 8; ++pasoEnemigo) {
-            int filaEnemigo = fila + pasoEnemigo * dfila;
-            int colEnemigo = col + pasoEnemigo * dcol;
-
-            // Verificar límites
-            if (filaEnemigo < 0 || filaEnemigo >= N_FILES ||
-                colEnemigo < 0 || colEnemigo >= N_COLUMNES) {
-                break;
-            }
-
-            if (m_tauler[filaEnemigo][colEnemigo].esBuida()) {
-                // Casilla vacía, continuar buscando
-                continue;
-            }
-            else if (m_tauler[filaEnemigo][colEnemigo].getColor() != color) {
-                // Encontramos enemigo, buscar posiciones de aterrizaje
-                for (int pasoLand = 1; pasoLand < 8; ++pasoLand) {
-                    int filaLand = filaEnemigo + pasoLand * dfila;
-                    int colLand = colEnemigo + pasoLand * dcol;
-
-                    if (filaLand < 0 || filaLand >= N_FILES ||
-                        colLand < 0 || colLand >= N_COLUMNES) {
-                        break;
-                    }
-
-                    if (m_tauler[filaLand][colLand].esBuida()) {
-                        // Posición de aterrizaje válida
-                        hayCaptures = true;
-
-                        Moviment mov(pos);
-                        mov.afegeixPecaMenjada(Posicio(coordenadasAPosicion(colEnemigo, filaEnemigo + 1)));
-                        mov.afegeixPas(Posicio(coordenadasAPosicion(colLand, filaLand + 1)));
-
-                        // Marcar enemigo como visitado
-                        visitados[filaEnemigo][colEnemigo] = true;
-
-                        // Usar la misma lógica que las fichas normales para cadenas
-                        calculaMovimentsEnCadena(Posicio(coordenadasAPosicion(colLand, filaLand + 1)),
-                            mov, movimentsCompletos, visitados);
-
-                        // Desmarcar para próximas iteraciones
-                        visitados[filaEnemigo][colEnemigo] = false;
-                    }
-                    else {
-                        // No se puede aterrizar más lejos, salir del bucle de aterrizaje
-                        break;
-                    }
-                }
-                // Salir del bucle de búsqueda de enemigos en esta dirección
-                break;
-            }
-            else {
-                // Encontramos pieza propia, no se puede continuar en esta dirección
-                break;
-            }
-        }
-    }
-
-    // 2. Si no hay capturas, calcular movimientos normales
-    if (!hayCaptures) {
-        for (const auto& dir : direcciones) {
-            int dfila = dir[0];
-            int dcol = dir[1];
-
-            for (int paso = 1; paso < 8; ++paso) {
-                int newFila = fila + paso * dfila;
-                int newCol = col + paso * dcol;
-
-                if (newFila < 0 || newFila >= N_FILES ||
-                    newCol < 0 || newCol >= N_COLUMNES) {
-                    break;
-                }
-
-                if (m_tauler[newFila][newCol].esBuida()) {
-                    // Posición vacía - agregar como movimiento normal
-                    Moviment mov(pos);
-                    mov.afegeixPas(Posicio(coordenadasAPosicion(newCol, newFila + 1)));
-                    movimentsCompletos.push_back(mov);
-                }
-                else {
-                    // Encontramos una pieza, no se puede continuar más allá
-                    break;
-                }
-            }
-        }
-    }
-
-    // Añadir todos los movimientos encontrados
-    for (const Moviment& mov : movimentsCompletos) {
-        m_tauler[fila][col].afegeixMovimentValid(mov);
-    }
-}
-
-void Tauler::calculaMovimentsDamaEnCadena(const Posicio& pos, Moviment& movActual,
-    std::vector<Moviment>& movimentsCompletos,
-    std::vector<std::vector<bool>>& visitados) {
-    int fila = pos.getFila() - 1;
-    int col = pos.getColumna();
-
-    // Obtener color de la dama original
-    ColorFitxa color = m_tauler[movActual.getOrigen().getFila() - 1][movActual.getOrigen().getColumna()].getColor();
-
-    bool hayMasCaptures = false;
-    const int direcciones[4][2] = { {1, 1}, {1, -1}, {-1, 1}, {-1, -1} };
-
-    // Buscar capturas adicionales en todas las direcciones
-    for (const auto& dir : direcciones) {
-        int dfila = dir[0];
-        int dcol = dir[1];
-
-        // Buscar enemigos en esta dirección
-        for (int pasoEnemigo = 1; pasoEnemigo < 8; ++pasoEnemigo) {
-            int filaEnemigo = fila + pasoEnemigo * dfila;
-            int colEnemigo = col + pasoEnemigo * dcol;
-
-            if (filaEnemigo < 0 || filaEnemigo >= N_FILES ||
-                colEnemigo < 0 || colEnemigo >= N_COLUMNES) {
-                break;
-            }
-
-            if (m_tauler[filaEnemigo][colEnemigo].esBuida()) {
-                // Casilla vacía, continuar buscando
-                continue;
-            }
-            else if (!visitados[filaEnemigo][colEnemigo] &&
-                m_tauler[filaEnemigo][colEnemigo].getColor() != color) {
-                // Encontramos enemigo no visitado, buscar posiciones de aterrizaje
-                for (int pasoLand = 1; pasoLand < 8; ++pasoLand) {
-                    int filaLand = filaEnemigo + pasoLand * dfila;
-                    int colLand = colEnemigo + pasoLand * dcol;
-
-                    if (filaLand < 0 || filaLand >= N_FILES ||
-                        colLand < 0 || colLand >= N_COLUMNES) {
-                        break;
-                    }
-
-                    if (m_tauler[filaLand][colLand].esBuida()) {
-                        // Posición de aterrizaje válida
-                        hayMasCaptures = true;
-
-                        // Crear nuevo movimiento
-                        Moviment nuevoMov = movActual;
-                        nuevoMov.afegeixPecaMenjada(Posicio(coordenadasAPosicion(colEnemigo, filaEnemigo + 1)));
-                        nuevoMov.afegeixPas(Posicio(coordenadasAPosicion(colLand, filaLand + 1)));
-
-                        // Marcar como visitado
-                        visitados[filaEnemigo][colEnemigo] = true;
-
-                        // Continuar buscando desde la nueva posición
-                        calculaMovimentsDamaEnCadena(Posicio(coordenadasAPosicion(colLand, filaLand + 1)),
-                            nuevoMov, movimentsCompletos, visitados);
-
-                        // Desmarcar
-                        visitados[filaEnemigo][colEnemigo] = false;
-                    }
-                    else {
-                        // No se puede aterrizar más lejos
-                        break;
-                    }
-                }
-                // Salir del bucle de búsqueda en esta dirección
-                break;
-            }
-            else {
-                // Encontramos pieza propia o ya visitada, no se puede continuar
-                break;
-            }
-        }
-    }
-
-    // CAMBIO CLAVE: Solo añadir el movimiento si no hay más capturas posibles
-    // Esto evita duplicados y asegura que solo se añadan los movimientos finales
-    if (!hayMasCaptures) {
-        movimentsCompletos.push_back(movActual);
-    }
-}
-
-void Tauler::eliminarMovimentsDuplicats() {
-    for (int i = 0; i < N_FILES; i++) {
-        for (int j = 0; j < N_COLUMNES; j++) {
-            if (!m_tauler[i][j].esBuida()) {
-                std::vector<Moviment> moviments;
-                m_tauler[i][j].getMovimentsValids(moviments);
-
-                // Remove duplicates based on destination and captured pieces
-                std::vector<Moviment> movimentsUnics;
-                for (const auto& mov : moviments) {
-                    bool isDuplicate = false;
-                    for (const auto& existing : movimentsUnics) {
-                        if (mov.getDesti() == existing.getDesti() &&
-                            mov.getNPecesMenjades() == existing.getNPecesMenjades()) {
-                            // Check if captured pieces are the same
-                            const auto& capturadas1 = mov.getPecesMenjades();
-                            const auto& capturadas2 = existing.getPecesMenjades();
-                            bool sameCaptures = true;
-                            if (capturadas1.size() == capturadas2.size()) {
-                                for (size_t k = 0; k < capturadas1.size(); k++) {
-                                    bool found = false;
-                                    for (size_t l = 0; l < capturadas2.size(); l++) {
-                                        if (capturadas1[k] == capturadas2[l]) {
-                                            found = true;
-                                            break;
-                                        }
-                                    }
-                                    if (!found) {
-                                        sameCaptures = false;
-                                        break;
-                                    }
-                                }
-                            }
-                            else {
-                                sameCaptures = false;
-                            }
-
-                            if (sameCaptures) {
-                                isDuplicate = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (!isDuplicate) {
-                        movimentsUnics.push_back(mov);
-                    }
-                }
-
-                // Update the piece with unique movements
-                m_tauler[i][j].netejaMovimentsValids();
-                for (const auto& mov : movimentsUnics) {
-                    m_tauler[i][j].afegeixMovimentValid(mov);
-                }
-            }
-        }
-    }
-}
 
 void Tauler::comprovaMovimentMaxim(const Posicio& pos) {
     // COMENTADO: Esta función implementa la regla de captura obligatoria
@@ -587,60 +259,360 @@ void Tauler::bufaFitxa(const Posicio& pos) {
     }
 }
 
-std::vector<std::vector<bool>> Tauler::crearMatriuVisitados() {
-    return std::vector<std::vector<bool>>(N_FILES, std::vector<bool>(N_COLUMNES, false));
-}
+// Agregar estas funciones al archivo tauler.cpp
 
-void Tauler::calculaMovimentsEnCadena(const Posicio& pos, Moviment& movActual,
-    std::vector<Moviment>& movimentsCompletos,
-    std::vector<std::vector<bool>>& visitados) {
+void Tauler::calculaMovimentsNormals(const Posicio& pos) {
     int fila = pos.getFila() - 1;
     int col = pos.getColumna();
 
-    // Obtener color de la ficha original
-    ColorFitxa color = m_tauler[movActual.getOrigen().getFila() - 1][movActual.getOrigen().getColumna()].getColor();
+    if (fila < 0 || fila >= N_FILES || col < 0 || col >= N_COLUMNES ||
+        m_tauler[fila][col].esBuida()) {
+        return;
+    }
 
-    bool hayMasCaptures = false;
+    ColorFitxa color = m_tauler[fila][col].getColor();
 
-    // Buscar capturas adicionales en todas las direcciones diagonales
-    const int direcciones[4][2] = { {-1, -1}, {-1, 1}, {1, -1}, {1, 1} };
+    // Direcciones de movimiento para fichas normales
+    int direcciones[4][2] = { {1, -1}, {1, 1}, {-1, -1}, {-1, 1} };
 
-    for (const auto& dir : direcciones) {
-        int dfila = dir[0];
-        int dcol = dir[1];
+    // Movimientos simples (sin captura) - solo hacia adelante
+    int direccionesSimples[2][2];
+    int numDirSimples = 0;
 
-        int newFila = fila + 2 * dfila;
-        int newCol = col + 2 * dcol;
-        int filaComida = fila + dfila;
-        int colComida = col + dcol;
+    if (color == COLOR_NEGRE) {
+        // Las X (negras) se mueven hacia abajo (fila disminuye)
+        direccionesSimples[numDirSimples][0] = -1; direccionesSimples[numDirSimples][1] = -1; numDirSimples++;
+        direccionesSimples[numDirSimples][0] = -1; direccionesSimples[numDirSimples][1] = 1; numDirSimples++;
+    }
+    else {
+        // Las O (blancas) se mueven hacia arriba (fila aumenta)
+        direccionesSimples[numDirSimples][0] = 1; direccionesSimples[numDirSimples][1] = -1; numDirSimples++;
+        direccionesSimples[numDirSimples][0] = 1; direccionesSimples[numDirSimples][1] = 1; numDirSimples++;
+    }
 
-        if (newFila >= 0 && newFila < N_FILES && newCol >= 0 && newCol < N_COLUMNES &&
-            filaComida >= 0 && filaComida < N_FILES && colComida >= 0 && colComida < N_COLUMNES &&
-            !visitados[filaComida][colComida] &&
-            !m_tauler[filaComida][colComida].esBuida() &&
-            m_tauler[filaComida][colComida].getColor() != color &&
-            m_tauler[newFila][newCol].esBuida()) {
+    // Movimientos simples
+    for (int i = 0; i < numDirSimples; i++) {
+        int nuevaFila = fila + direccionesSimples[i][0];
+        int nuevaCol = col + direccionesSimples[i][1];
 
-            hayMasCaptures = true;
+        if (nuevaFila >= 0 && nuevaFila < N_FILES &&
+            nuevaCol >= 0 && nuevaCol < N_COLUMNES &&
+            m_tauler[nuevaFila][nuevaCol].esBuida()) {
 
-            // Crear copia del movimiento actual
-            Moviment nuevoMov = movActual;
-            nuevoMov.afegeixPecaMenjada(Posicio(coordenadasAPosicion(colComida, filaComida + 1)));
-            nuevoMov.afegeixPas(Posicio(coordenadasAPosicion(newCol, newFila + 1)));
-
-            // Marcar como visitado
-            visitados[filaComida][colComida] = true;
-
-            // Continuar buscando desde la nueva posición
-            calculaMovimentsEnCadena(Posicio(coordenadasAPosicion(newCol, newFila + 1)),
-                nuevoMov, movimentsCompletos, visitados);
-
-            // Desmarcar
-            visitados[filaComida][colComida] = false;
+            Posicio destino(coordenadasAPosicion(nuevaCol, nuevaFila + 1));
+            if (esCassellaValid(destino)) {
+                Moviment mov(pos);
+                mov.afegeixPas(destino);
+                m_tauler[fila][col].afegeixMovimentValid(mov);
+            }
         }
     }
 
-    // CLAVE: Siempre añadir el movimiento actual, independientemente de si hay más capturas
-    // Esto asegura que se guarden tanto las posiciones intermedias como la final
-    movimentsCompletos.push_back(movActual);
+    // Buscar capturas en todas las direcciones
+    std::vector<std::vector<bool>> visitado(N_FILES, std::vector<bool>(N_COLUMNES, false));
+    buscarCapturas(pos, pos, Moviment(pos), visitado, color);
+}
+
+void Tauler::buscarCapturas(const Posicio& posOrigen, const Posicio& posActual, Moviment movActual, std::vector<std::vector<bool>>& visitado, ColorFitxa colorOriginal) {
+    int fila = posActual.getFila() - 1;
+    int col = posActual.getColumna();
+
+    int direcciones[4][2] = { {1, -1}, {1, 1}, {-1, -1}, {-1, 1} };
+    bool encontroCaptura = false;
+
+    for (int i = 0; i < 4; i++) {
+        int dirFila = direcciones[i][0];
+        int dirCol = direcciones[i][1];
+
+        // Buscar enemigo
+        int filaEnemigo = fila + dirFila;
+        int colEnemigo = col + dirCol;
+
+        if (filaEnemigo < 0 || filaEnemigo >= N_FILES ||
+            colEnemigo < 0 || colEnemigo >= N_COLUMNES) {
+            continue;
+        }
+
+        if (m_tauler[filaEnemigo][colEnemigo].esBuida() ||
+            m_tauler[filaEnemigo][colEnemigo].getColor() == colorOriginal ||
+            visitado[filaEnemigo][colEnemigo]) {
+            continue;
+        }
+
+        // Buscar casilla de aterrizaje
+        int filaAterrizaje = filaEnemigo + dirFila;
+        int colAterrizaje = colEnemigo + dirCol;
+
+        if (filaAterrizaje < 0 || filaAterrizaje >= N_FILES ||
+            colAterrizaje < 0 || colAterrizaje >= N_COLUMNES) {
+            continue;
+        }
+
+        if (!m_tauler[filaAterrizaje][colAterrizaje].esBuida()) {
+            continue;
+        }
+
+        Posicio posEnemigo(coordenadasAPosicion(colEnemigo, filaEnemigo + 1));
+        Posicio posAterrizaje(coordenadasAPosicion(colAterrizaje, filaAterrizaje + 1));
+
+        if (!esCassellaValid(posAterrizaje)) {
+            continue;
+        }
+
+        // Crear nuevo movimiento
+        Moviment nuevoMov = movActual;
+        nuevoMov.afegeixPas(posAterrizaje);
+        nuevoMov.afegeixPecaMenjada(posEnemigo);
+
+        // Marcar enemigo como visitado
+        visitado[filaEnemigo][colEnemigo] = true;
+        encontroCaptura = true;
+
+        // Primero, agregar este movimiento como válido
+        int filaOrigen = posOrigen.getFila() - 1;
+        int colOrigen = posOrigen.getColumna();
+        m_tauler[filaOrigen][colOrigen].afegeixMovimentValid(nuevoMov);
+
+        // Luego buscar capturas adicionales recursivamente
+        std::vector<std::vector<bool>> visitadoCopia = visitado;
+        buscarCapturas(posOrigen, posAterrizaje, nuevoMov, visitadoCopia, colorOriginal);
+
+        // Desmarcar para otras rutas
+        visitado[filaEnemigo][colEnemigo] = false;
+    }
+}
+
+void Tauler::calculaMovimentsDama(const Posicio& pos) {
+    int fila = pos.getFila() - 1;
+    int col = pos.getColumna();
+
+    if (fila < 0 || fila >= N_FILES || col < 0 || col >= N_COLUMNES ||
+        m_tauler[fila][col].esBuida()) {
+        return;
+    }
+
+    ColorFitxa color = m_tauler[fila][col].getColor();
+    int direcciones[4][2] = { {1, -1}, {1, 1}, {-1, -1}, {-1, 1} };
+
+    // Movimientos simples (sin captura)
+    for (int i = 0; i < 4; i++) {
+        int dirFila = direcciones[i][0];
+        int dirCol = direcciones[i][1];
+
+        // La dama puede moverse múltiples casillas en una dirección
+        for (int paso = 1; paso < 8; paso++) {
+            int nuevaFila = fila + dirFila * paso;
+            int nuevaCol = col + dirCol * paso;
+
+            if (nuevaFila < 0 || nuevaFila >= N_FILES ||
+                nuevaCol < 0 || nuevaCol >= N_COLUMNES) {
+                break;
+            }
+
+            if (!m_tauler[nuevaFila][nuevaCol].esBuida()) {
+                break; // Hay una pieza bloqueando el camino
+            }
+
+            Posicio destino(coordenadasAPosicion(nuevaCol, nuevaFila + 1));
+            if (esCassellaValid(destino)) {
+                Moviment mov(pos);
+                mov.afegeixPas(destino);
+                m_tauler[fila][col].afegeixMovimentValid(mov);
+            }
+        }
+    }
+
+    // Movimientos con captura
+    std::vector<std::vector<bool>> visitado(N_FILES, std::vector<bool>(N_COLUMNES, false));
+
+    for (int i = 0; i < 4; i++) {
+        Moviment movInicial(pos);
+        calculaCapturasRecursivoDama(pos, movInicial, direcciones[i][0],
+            direcciones[i][1], visitado, true);
+    }
+}
+
+void Tauler::calculaCapturasRecursivo(const Posicio& posActual, Moviment& movActual,
+    int dirFila, int dirCol,
+    std::vector<std::vector<bool>>& visitado,
+    bool esPrimerMovimiento) {
+    int fila = posActual.getFila() - 1;
+    int col = posActual.getColumna();
+
+    // Obtener el color de la ficha original (no la actual si estamos en recursión)
+    ColorFitxa miColor;
+    if (esPrimerMovimiento) {
+        miColor = m_tauler[fila][col].getColor();
+    }
+    else {
+        // En recursión, obtener el color de la ficha original
+        int filaOrigen = movActual.getOrigen().getFila() - 1;
+        int colOrigen = movActual.getOrigen().getColumna();
+        miColor = m_tauler[filaOrigen][colOrigen].getColor();
+    }
+
+    // Buscar enemigo en esta dirección
+    int filaEnemigo = fila + dirFila;
+    int colEnemigo = col + dirCol;
+
+    if (filaEnemigo < 0 || filaEnemigo >= N_FILES ||
+        colEnemigo < 0 || colEnemigo >= N_COLUMNES) {
+        return;
+    }
+
+    if (m_tauler[filaEnemigo][colEnemigo].esBuida() ||
+        m_tauler[filaEnemigo][colEnemigo].getColor() == miColor ||
+        visitado[filaEnemigo][colEnemigo]) {
+        return;
+    }
+
+    // Buscar casilla de aterrizaje después del enemigo
+    int filaAterrizaje = filaEnemigo + dirFila;
+    int colAterrizaje = colEnemigo + dirCol;
+
+    if (filaAterrizaje < 0 || filaAterrizaje >= N_FILES ||
+        colAterrizaje < 0 || colAterrizaje >= N_COLUMNES) {
+        return;
+    }
+
+    if (!m_tauler[filaAterrizaje][colAterrizaje].esBuida()) {
+        return;
+    }
+
+    Posicio posEnemigo(coordenadasAPosicion(colEnemigo, filaEnemigo + 1));
+    Posicio posAterrizaje(coordenadasAPosicion(colAterrizaje, filaAterrizaje + 1));
+
+    if (!esCassellaValid(posAterrizaje)) {
+        return;
+    }
+
+    // Crear nuevo movimiento con esta captura
+    Moviment nuevoMov = movActual;
+    nuevoMov.afegeixPas(posAterrizaje);
+    nuevoMov.afegeixPecaMenjada(posEnemigo);
+
+    // Marcar enemigo como visitado para esta rama
+    visitado[filaEnemigo][colEnemigo] = true;
+
+    // Buscar capturas adicionales desde la posición de aterrizaje
+    bool tieneCapturaAdicional = false;
+    int todasDirecciones[4][2] = { {1, -1}, {1, 1}, {-1, -1}, {-1, 1} };
+
+    for (int i = 0; i < 4; i++) {
+        // Crear copia del estado para cada dirección
+        std::vector<std::vector<bool>> visitadoCopia = visitado;
+        Moviment movCopia = nuevoMov;
+
+        int filaOrigen = movActual.getOrigen().getFila() - 1;
+        int colOrigen = movActual.getOrigen().getColumna();
+        size_t capturas_antes = nuevoMov.getNPecesMenjades();
+
+        calculaCapturasRecursivo(posAterrizaje, movCopia, todasDirecciones[i][0],
+            todasDirecciones[i][1], visitadoCopia, false);
+
+        // Si se encontraron más capturas, agregar el movimiento completo
+        if (movCopia.getNPecesMenjades() > capturas_antes) {
+            tieneCapturaAdicional = true;
+            m_tauler[filaOrigen][colOrigen].afegeixMovimentValid(movCopia);
+        }
+    }
+
+    // Si no hay capturas adicionales, agregar el movimiento actual
+    if (!tieneCapturaAdicional) {
+        int filaOrigen = movActual.getOrigen().getFila() - 1;
+        int colOrigen = movActual.getOrigen().getColumna();
+        m_tauler[filaOrigen][colOrigen].afegeixMovimentValid(nuevoMov);
+    }
+}
+
+void Tauler::calculaCapturasRecursivoDama(const Posicio& posActual, Moviment& movActual,
+    int dirFila, int dirCol,
+    std::vector<std::vector<bool>>& visitado,
+    bool esPrimerMovimiento) {
+    int fila = posActual.getFila() - 1;
+    int col = posActual.getColumna();
+    ColorFitxa miColor = m_tauler[fila][col].getColor();
+
+    // La dama puede capturar a distancia
+    for (int paso = 1; paso < 8; paso++) {
+        int filaEnemigo = fila + dirFila * paso;
+        int colEnemigo = col + dirCol * paso;
+
+        if (filaEnemigo < 0 || filaEnemigo >= N_FILES ||
+            colEnemigo < 0 || colEnemigo >= N_COLUMNES) {
+            break;
+        }
+
+        if (m_tauler[filaEnemigo][colEnemigo].esBuida()) {
+            continue; // Seguir buscando
+        }
+
+        if (m_tauler[filaEnemigo][colEnemigo].getColor() == miColor ||
+            visitado[filaEnemigo][colEnemigo]) {
+            break; // Pieza propia o ya visitada
+        }
+
+        // Encontramos un enemigo, buscar casillas de aterrizaje
+        for (int pasoAterrizaje = 1; pasoAterrizaje < 8; pasoAterrizaje++) {
+            int filaAterrizaje = filaEnemigo + dirFila * pasoAterrizaje;
+            int colAterrizaje = colEnemigo + dirCol * pasoAterrizaje;
+
+            if (filaAterrizaje < 0 || filaAterrizaje >= N_FILES ||
+                colAterrizaje < 0 || colAterrizaje >= N_COLUMNES) {
+                break;
+            }
+
+            if (!m_tauler[filaAterrizaje][colAterrizaje].esBuida()) {
+                break;
+            }
+
+            Posicio posEnemigo(coordenadasAPosicion(colEnemigo, filaEnemigo + 1));
+            Posicio posAterrizaje(coordenadasAPosicion(colAterrizaje, filaAterrizaje + 1));
+
+            if (!esCassellaValid(posAterrizaje)) {
+                continue;
+            }
+
+            // Crear nuevo movimiento con esta captura
+            Moviment nuevoMov = movActual;
+            nuevoMov.afegeixPas(posAterrizaje);
+            nuevoMov.afegeixPecaMenjada(posEnemigo);
+
+            // Marcar enemigo como visitado
+            visitado[filaEnemigo][colEnemigo] = true;
+
+            // Buscar capturas adicionales desde la posición de aterrizaje
+            bool tieneCapturaAdicional = false;
+            int todasDirecciones[4][2] = { {1, -1}, {1, 1}, {-1, -1}, {-1, 1} };
+
+            for (int i = 0; i < 4; i++) {
+                std::vector<std::vector<bool>> visitadoCopia = visitado;
+                Moviment movCopia = nuevoMov;
+
+                size_t movimientosAntes = movCopia.getNPecesMenjades();
+                calculaCapturasRecursivoDama(posAterrizaje, movCopia, todasDirecciones[i][0],
+                    todasDirecciones[i][1], visitadoCopia, false);
+
+                if (movCopia.getNPecesMenjades() > movimientosAntes) {
+                    tieneCapturaAdicional = true;
+                    // Agregar este movimiento extendido
+                    int filaOrigen = movActual.getOrigen().getFila() - 1;
+                    int colOrigen = movActual.getOrigen().getColumna();
+                    m_tauler[filaOrigen][colOrigen].afegeixMovimentValid(movCopia);
+                }
+            }
+
+            // Si no hay capturas adicionales, agregar el movimiento actual
+            if (!tieneCapturaAdicional) {
+                int filaOrigen = movActual.getOrigen().getFila() - 1;
+                int colOrigen = movActual.getOrigen().getColumna();
+                m_tauler[filaOrigen][colOrigen].afegeixMovimentValid(nuevoMov);
+            }
+
+            // Desmarcar enemigo para otras rutas
+            visitado[filaEnemigo][colEnemigo] = false;
+        }
+
+        break; // Solo procesamos el primer enemigo encontrado en esta dirección
+    }
 }

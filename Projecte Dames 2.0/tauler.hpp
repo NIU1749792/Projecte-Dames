@@ -31,19 +31,10 @@ private:
 
     std::string coordenadasAPosicion(int columna, int fila) const;
 
-    // Función para cadenas de movimientos de fichas normales
-    void calculaMovimentsEnCadena(const Posicio& pos, Moviment& movActual,
-        std::vector<Moviment>& movimentsCompletos,
-        std::vector<std::vector<bool>>& visitados);
+    void calculaCapturasRecursivoDama(const Posicio& posActual, Moviment& movActual, int dirFila, int dirCol, std::vector<std::vector<bool>>& visitado, bool esPrimerMovimiento);
+    void calculaCapturasRecursivo(const Posicio& posActual, Moviment& movActual, int dirFila, int dirCol, std::vector<std::vector<bool>>& visitado, bool esPrimerMovimiento);
+    void buscarCapturas(const Posicio& posOrigen, const Posicio& posActual, Moviment movActual, std::vector<std::vector<bool>>& visitado, ColorFitxa colorOriginal);
 
-    // Función para cadenas de movimientos de damas
-    void calculaMovimentsDamaEnCadena(const Posicio& pos, Moviment& movActual,
-        std::vector<Moviment>& movimentsCompletos,
-        std::vector<std::vector<bool>>& visitados);
-
-    // Función para crear matriz de visitados
-    std::vector<std::vector<bool>> crearMatriuVisitados();
-    void eliminarMovimentsDuplicats();
 };
 
 #endif // TAULER_H
